@@ -7,8 +7,6 @@ Kekius is a Next.js-based AI Copilot application that integrates with Hedera Blo
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![Hedera](https://img.shields.io/badge/Hedera-002FA7?style=for-the-badge&logo=hedera&logoColor=white)
 
-<img src="https://pbs.twimg.com/profile_images/1887520476555046912/wxXggXte_400x400.jpg" alt="Kekius" width="100" height="100">
-
 ## Features
 
 - AI-powered Copilot interface
@@ -18,11 +16,8 @@ Kekius is a Next.js-based AI Copilot application that integrates with Hedera Blo
 - Token balance checking
 - HBAR staking functionality
 - Unstaking functionality
-- DefiLlama integration for TVL information of the ecosystem
 - Token swapping capabilities
 - Token sending functionality
-- Portfolio management
-- Portfolio analysis
 - Transaction search & AI-powered analysis
 - Search latest Hedera news with Venice API
 - Token analysis using Sonia
