@@ -1,9 +1,8 @@
 import React from "react";
 import { Copy, LogOut } from "lucide-react";
-import { MsgUndelegate } from "@injectivelabs/sdk-ts"; // Injective SDK
-import { BigNumberInBase } from "@injectivelabs/utils";
-import { createChatMessage, msgBroadcastClient } from "../utils";
+import { createChatMessage } from "../utils";
 import { useChat } from "../providers/chatProvider";
+
 interface Validator {
   validatorName: string;
   validatorAddress: string;
@@ -12,54 +11,63 @@ interface Validator {
 }
 
 const ValidatorList = ({
-    validators,
-    handleExit,
-    injectiveAddress,
-    token
-  }: {
-    injectiveAddress:string|null,
-    validators: Validator[];
-    handleExit: () => void;
-    token:string;
-  }) => {
+  validators,
+  handleExit,
+  hederaAccountId,
+  token
+}: {
+  hederaAccountId: string | null,
+  validators: Validator[];
+  handleExit: () => void;
+  token: string;
+}) => {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
   const { addMessage } = useChat();
+
   const handleUnstake = async (validator: Validator) => {
     try {
-      
-      
-      const unstakeAmount = new BigNumberInBase(validator.stakedAmount).toWei(18);
-        if(!injectiveAddress){
-            return
-        }
-      
-      const msgUndelegate = MsgUndelegate.fromJSON({
-        injectiveAddress,
-        validatorAddress: validator.validatorAddress,
-        amount: {
-          denom: "inj",
-          amount: unstakeAmount.toFixed(),
-        },
-      });
-      const msgClient = msgBroadcastClient()
-      const res = await msgClient.broadcast({
-        injectiveAddress: injectiveAddress,
-        msgs: msgUndelegate,
-      });
-      addMessage(token,
-              createChatMessage({
-                sender: "ai",
-                text: `Unstake success ! Here is your tx Hash : ${res.txHash}`,
-                type: "text",
-              })
-            );
+      if (!hederaAccountId) {
+        return;
+      }
 
-      
+      // Call the Hedera API or contract to unstake tokens
+      const response = await fetch('/api/hedera/unstake', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountId: hederaAccountId,
+          validatorAddress: validator.validatorAddress,
+          amount: validator.stakedAmount
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to unstake");
+      }
+
+      addMessage(token,
+        createChatMessage({
+          sender: "ai",
+          text: `Unstake success! Here is your transaction ID: ${data.transactionId}`,
+          type: "text",
+        })
+      );
     } catch (error) {
-      
-    } 
+      console.error("Error unstaking:", error);
+      addMessage(token,
+        createChatMessage({
+          sender: "ai",
+          text: `Failed to unstake: ${error instanceof Error ? error.message : "Unknown error"}`,
+          type: "error",
+        })
+      );
+    }
   };
 
   return (
@@ -79,8 +87,8 @@ const ValidatorList = ({
 
             <div className="mt-4 flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Staked: <span className="text-white">{validator.stakedAmount.toFixed(6)} INJ</span></p>
-                <p className="text-sm text-gray-400">Rewards: <span className="text-white">{validator.rewards} INJ</span></p>
+                <p className="text-sm text-gray-400">Staked: <span className="text-white">{validator.stakedAmount.toFixed(6)} HBAR</span></p>
+                <p className="text-sm text-gray-400">Rewards: <span className="text-white">{validator.rewards} HBAR</span></p>
               </div>
               <button
                 className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg"
@@ -100,12 +108,12 @@ const ValidatorList = ({
         ))}
       </div>
       <button
-          type="button"
-          onClick={handleExit}
-          className="mt-3 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-300"
-        >
-          Exit
-        </button>
+        type="button"
+        onClick={handleExit}
+        className="mt-3 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-300"
+      >
+        Exit
+      </button>
     </div>
   );
 };

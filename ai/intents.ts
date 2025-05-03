@@ -175,7 +175,7 @@ export const intents = {
     search_injective_news: {
         description: "Finds the latest Injective news on X (Twitter).",
         examples: [
-            "What’s the latest news about Injective?",
+            "What's the latest news about Injective?",
             "Find Injective updates on Twitter."
         ],
         keywords: [
@@ -200,21 +200,20 @@ export const intents = {
         ]
     },
     talk_between_agents: {
-        description: "Triggers a multi-turn conversation between Jecta and Sonia based on the user's request.",
+        description: "Triggers a multi-turn conversation between Kekius and Sonia based on the user's request.",
         examples: [
             "Tell me a joke about Sonia.",
-            "What does Jecta think about Sonia?",
-            "Let Jecta and Sonia have a debate about Injective.",
-            "I want Jecta and Sonia to talk to each other."
+            "What does Kekius think about Sonia?",
+            "Let Kekius and Sonia have a debate about Injective.",
+            "I want Kekius and Sonia to talk to each other."
         ],
         keywords: [
             "talk", "discuss", "debate", "chat", "conversation",
-            "between Jecta and Sonia", "Jecta and Sonia talk", "make Jecta talk to Sonia",
-            "make Sonia reply", "tell a joke about Sonia", "what does Jecta think of",
+            "between Kekius and Sonia", "Kekius and Sonia talk", "make Kekius talk to Sonia",
+            "make Sonia reply", "tell a joke about Sonia", "what does Kekius think of",
             "what does Sonia think of"
         ]
-    }
-    ,
+    },
     get_metrics: {
         description: "Fetches the Total Value Locked (TVL) details of the Injective Ecosystem, including top protocols and aggregated TVL.",
         examples: [
@@ -229,8 +228,7 @@ export const intents = {
             "top TVL protocols", "Injective ecosystem TVL", "defi TVL",
             "biggest protocols by TVL", "tvl details", "injective defi rankings"
         ]
-    }
-    ,
+    },
     get_governance_proposals: {
         description: "Fetches and displays recent governance proposals on the Injective blockchain.",
         examples: [
@@ -240,7 +238,7 @@ export const intents = {
             "What are the latest governance proposals?",
             "Display active proposals on Injective.",
             "Get me the most recent Injective proposals.",
-            "What’s happening in Injective governance?"
+            "What's happening in Injective governance?"
         ],
         keywords: [
             "proposal", "proposals", "governance", "injective governance",
@@ -250,19 +248,18 @@ export const intents = {
             "show proposals", "fetch proposals", "display proposals",
             "proposals of Injective", "current proposals", "governance overview"
         ]
-    }
-    ,
+    },
     default: {
         description: "Handles general questions about Injective, greetings, and polite interactions.",
         examples: [
             "Who is Sonia ?",
             "Hey there!",
             "Hello!",
-            "How’s it going?",
+            "How's it going?",
             "Tell me about Injective.",
             "Can you explain how Injective works?",
             "What makes Injective special?",
-            "I’m new to Injective—where should I start?",
+            "I'm new to Injective—where should I start?",
             "How does staking work on Injective?",
             "Is Injective good for trading?",
             "Thank you!",

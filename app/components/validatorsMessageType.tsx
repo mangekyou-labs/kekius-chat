@@ -17,7 +17,7 @@ const ValidatorsMessageType = ({
   isLastError: boolean;
   handleExit: () => void;
   setLoadingState: (loadingState: LoadingState) => void;
-  token:string
+  token: string
 }) => {
   const { setValidatorAddress, validatorSelected, setValidatorSelected } = useValidator();
   const { addMessage, addMessages, messageHistory } = useChat();
@@ -30,7 +30,7 @@ const ValidatorsMessageType = ({
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" ,Authorization: token ? `Bearer ${token}` : "",},
+        headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "", },
         body: JSON.stringify({
           message: `${validatorIndex}`,
           chatHistory: messageHistory,
@@ -53,7 +53,7 @@ const ValidatorsMessageType = ({
       );
       setValidatorAddress(validator);
       setValidatorSelected(true);
-      addMessages(token,data.messages); // Update chat history
+      addMessages(token, data.messages); // Update chat history
     } catch (error) {
       console.error("Chat error:", error);
       addMessage(token,

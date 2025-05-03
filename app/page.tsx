@@ -35,7 +35,7 @@ export type LoadingState = "thinking" | "executing" | "general" | null;
 const Chatbot = () => {
   const [loadingState, setLoadingState] = useState<LoadingState>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const [injectiveAddress, setInjectiveAddress] = useState<string | null>(null);
+  const [hederaAccountId, setHederaAccountId] = useState<string | null>(null);
   const [isWhitelisted, setIsWhitelisted] = useState<boolean>(false);
   const [token, setToken] = useState<string>("");
   const [newChatCreated, setNewChatCreated] = useState<boolean>(false);
@@ -46,7 +46,7 @@ const Chatbot = () => {
     if (token) {
       setToken(token);
     }
-  }, [injectiveAddress]);
+  }, [hederaAccountId]);
   const {
     messageHistory,
     setMessageHistory,
@@ -63,7 +63,7 @@ const Chatbot = () => {
     setMessageHistory((prevChat) => {
       if (prevChat.length === 0) return prevChat;
 
-     
+
       const updatedChat = [...prevChat];
       updatedChat[updatedChat.length - 1].type = "text";
       return updatedChat;
@@ -135,7 +135,7 @@ const Chatbot = () => {
       return;
     }
 
-    if (!injectiveAddress || !isWhitelisted) {
+    if (!hederaAccountId || !isWhitelisted) {
       return;
     }
     if (!currentChat?.id) {
@@ -144,7 +144,7 @@ const Chatbot = () => {
         text: userMessage,
         type: "text",
       });
-      const newChat = await createChat(injectiveAddress, newUserMessage, token,"system");
+      const newChat = await createChat(hederaAccountId, newUserMessage, token, "system");
 
       if (newChat?.id) {
         addMessage(token, newUserMessage, newChat);
@@ -172,9 +172,9 @@ const Chatbot = () => {
   };
 
   const getAIResponse = async (userMessage: string, updatedChat?: Chat) => {
-    fetchResponse(userMessage, messageHistory, injectiveAddress, token)
+    fetchResponse(userMessage, messageHistory, hederaAccountId, token)
       .then((data) => {
-        addMessages(token, data.messages, updatedChat); 
+        addMessages(token, data.messages, updatedChat);
       })
       .catch((err) => {
         console.error("Error fetching response:", err);
@@ -202,16 +202,16 @@ const Chatbot = () => {
     <div className="flex h-screen w-screen bg-black text-white">
       {!isWhitelisted && (
         <EarlyAccessPage
-          injectiveAddress={injectiveAddress}
-          setInjectiveAddress={(address) => setInjectiveAddress(address)}
+          hederaAccountId={hederaAccountId}
+          setHederaAccountId={(address) => setHederaAccountId(address)}
           isWhitelisted={isWhitelisted}
           setIsWhitelisted={(WL) => setIsWhitelisted(WL)}
         />
       )}
       <Menu
         createNewChatButton={createNewChatButton}
-        injectiveAddress={injectiveAddress}
-        setInjectiveAddress={(address) => setInjectiveAddress(address)}
+        hederaAccountId={hederaAccountId}
+        setHederaAccountId={(address) => setHederaAccountId(address)}
         loadChatHistory={loadChatHistory}
         isWhitelisted={isWhitelisted}
         newChatCreated={newChatCreated}
@@ -226,13 +226,11 @@ const Chatbot = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
-              className={`flex-1 bg-zinc-900 p-6 mx-2 rounded-xl overflow-y-auto flex flex-col pb-20 relative ${
-                messageHistory.length === 0 ? "mb-2" : "mb-16"
-              } ${
-                loadingState
+              className={`flex-1 bg-zinc-900 p-6 mx-2 rounded-xl overflow-y-auto flex flex-col pb-20 relative ${messageHistory.length === 0 ? "mb-2" : "mb-16"
+                } ${loadingState
                   ? "border-[3px] border-transparent animate-neonBlink"
                   : "border border-zinc-800"
-              }`}
+                }`}
             >
               <AnimatePresence initial={false} mode="popLayout">
                 {messageHistory.map((msg, i) => {
@@ -249,33 +247,32 @@ const Chatbot = () => {
                       msg.type === "send_token") &&
                     i === messageHistory.length - 1;
 
-                 
+
                   const isRecent = i >= messageHistory.length - 3;
                   const animationProps = isRecent
                     ? {
-                        initial: { opacity: 0, y: 10 },
-                        animate: { opacity: 1, y: 0 },
-                        exit: { opacity: 0, y: -10 },
-                        transition: {
-                          type: "spring",
-                          stiffness: 500,
-                          damping: 30,
-                          mass: 1,
-                          delay: isRecent ? 0.1 : 0,
-                        },
-                      }
+                      initial: { opacity: 0, y: 10 },
+                      animate: { opacity: 1, y: 0 },
+                      exit: { opacity: 0, y: -10 },
+                      transition: {
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 30,
+                        mass: 1,
+                        delay: isRecent ? 0.1 : 0,
+                      },
+                    }
                     : {
-                        initial: { opacity: 1 },
-                        animate: { opacity: 1 },
-                      };
+                      initial: { opacity: 1 },
+                      animate: { opacity: 1 },
+                    };
 
                   return (
                     <motion.div
                       key={`chat-message-${i}-${msg.sender}`}
                       {...animationProps}
-                      className={`flex my-2 ${
-                        msg.sender === "user" ? "justify-end" : "justify-start"
-                      }`}
+                      className={`flex my-2 ${msg.sender === "user" ? "justify-end" : "justify-start"
+                        }`}
                     >
 
                       {msg.sender === "ai" && (
@@ -287,14 +284,14 @@ const Chatbot = () => {
                           height={32}
                         />
                       )}
-                                              {msg.sender === "sonia" && (
+                      {msg.sender === "sonia" && (
                         <img
                           src={sonia.src}
                           alt="Sonia"
                           className="w-8 h-8 rounded-md mr-2 border-white border-1"
                         />
                       )}
-                                            {msg.sender === "venicia" && (
+                      {msg.sender === "venicia" && (
                         <img
                           src={venicia.src}
                           alt="Venicia"
@@ -305,46 +302,46 @@ const Chatbot = () => {
                         <BalanceMessageType balances={msg.balances} />
                       )}
                       {msg.type === "tokenmetadata" && (
-                    <div className="p-3 rounded-xl bg-zinc-800 text-white ">
-                      
-                      <TokenMetadataCard msg={msg} />
-                    </div>
+                        <div className="p-3 rounded-xl bg-zinc-800 text-white ">
+
+                          <TokenMetadataCard msg={msg} />
+                        </div>
                       )}
                       {msg.type === "unstake" && (
-                        isLastError?(<>
-                          <ValidatorTable handleExit={handleExit} validators={msg.stake_info} injectiveAddress={injectiveAddress} token={token} />
+                        isLastError ? (<>
+                          <ValidatorTable handleExit={handleExit} validators={msg.stake_info} hederaAccountId={hederaAccountId} token={token} />
 
-                        </>):(<>
+                        </>) : (<>
                           <div className="p-3 rounded-xl bg-zinc-800 text-white max-w-[75%]">
-                              Done !
-                            </div>
+                            Done !
+                          </div>
                         </>)
-                    
+
                       )}
                       {msg.type === "llama" && (
-                    <div className="p-3 rounded-xl bg-zinc-800 text-white sm:w-fit w-full">
-                      
-                      <MetricsType data={msg.llama} />
-                    </div>
+                        <div className="p-3 rounded-xl bg-zinc-800 text-white sm:w-fit w-full">
+
+                          <MetricsType data={msg.llama} />
+                        </div>
                       )}
                       {msg.type === "proposals" && (
-                    <div className="p-3 rounded-xl bg-zinc-800 text-white w-full">
-                      
-                      <ProposalCard proposals={msg.proposals}  />
-                    </div>
+                        <div className="p-3 rounded-xl bg-zinc-800 text-white w-full">
+
+                          <ProposalCard proposals={msg.proposals} />
+                        </div>
                       )}
                       {msg.type === "pie" && (
-                    <div className="p-3 rounded-xl bg-zinc-800 text-white w-96">
-                      
-                      <TokenPieChart data={msg.pie} />
-                    </div>
+                        <div className="p-3 rounded-xl bg-zinc-800 text-white w-96">
+
+                          <TokenPieChart data={msg.pie} />
+                        </div>
                       )}
                       {msg.type === "validators" &&
                         (isLastError ? (
                           msg.validators && (
                             <ValidatorsMessageType
                               token={token}
-                              injectiveAddress={injectiveAddress}
+                              hederaAccountId={hederaAccountId}
                               validators={msg.validators}
                               setLoadingState={setLoadingState}
                               isLastError={isLastError}
@@ -363,30 +360,30 @@ const Chatbot = () => {
                           <StakeAmountMessageType
                             token={token}
                             handleExit={handleExit}
-                            injectiveAddress={injectiveAddress}
+                            hederaAccountId={hederaAccountId}
                           />
                         ) : (
                           <>
                             <div className="p-3 rounded-xl bg-zinc-800 text-white max-w-[75%]">
-                            
+
                               Done !
-                             
+
                             </div>
                           </>
                         ))}
-                        {msg.type === "place_bid_amount" &&
+                      {msg.type === "place_bid_amount" &&
                         (isLastError ? (
                           <PlaceBidAmountMessageType
                             token={token}
                             handleExit={handleExit}
-                            injectiveAddress={injectiveAddress}
+                            hederaAccountId={hederaAccountId}
                           />
                         ) : (
                           <>
                             <div className="p-3 rounded-xl bg-zinc-800 text-white max-w-[75%]">
-                              
+
                               Done !
-                              
+
                             </div>
                           </>
                         ))}
@@ -400,7 +397,7 @@ const Chatbot = () => {
                               updateExecuting={updateExecuting}
                               updateChat={updateChat}
                               contractInput={msg.contractInput}
-                              injectiveAddress={injectiveAddress}
+                              hederaAccountId={hederaAccountId}
                               token={token}
                             />
                           )
@@ -415,7 +412,7 @@ const Chatbot = () => {
                           msg.send && (
                             <SendTokenMessageType
                               text={msg.text}
-                              injectiveAddress={injectiveAddress}
+                              hederaAccountId={hederaAccountId}
                               setExecuting={updateExecuting}
                               executing={loadingState === "executing"}
                               handleExit={handleExit}
@@ -439,8 +436,8 @@ const Chatbot = () => {
                       {(msg.type === "text" ||
                         msg.type === "success" ||
                         msg.type === "loading") && (
-                        <DefaultMessageType text={msg.text} sender={msg.sender} />
-                      )}
+                          <DefaultMessageType text={msg.text} sender={msg.sender} />
+                        )}
                     </motion.div>
                   );
                 })}

@@ -1,86 +1,62 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { ChainGrpcWasmApi, MsgExecuteContractCompat, toBase64 } from "@injectivelabs/sdk-ts";
-import { getNetworkEndpoints, Network } from "@injectivelabs/networks";
-import {
-  MsgBroadcaster,
-  type Wallet as WalletType,
-  WalletStrategy,
-  Wallet,
-} from "@injectivelabs/wallet-ts";
-import { connectToWallet } from "@/wallet/walletConnection";
-import { BigNumberInBase } from "@injectivelabs/utils";
-import { ChainId } from "@injectivelabs/ts-types";
 import { ToastContainer, toast } from "react-toastify";
-
 import { Loader2, Wallet as WalletIcon } from "lucide-react";
-import { crateInjectiveIfNotExists } from "../services/userMessage";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-
-const endpoints = getNetworkEndpoints(Network.Mainnet);
-const chainGrpcWasmApi = new ChainGrpcWasmApi(endpoints.grpc);
+import { connectToHederaWallet } from "@/wallet/hederaWalletConnection";
 
 interface EarlyAccessPageProps {
-  injectiveAddress: string | null;
-  setInjectiveAddress: (address: string | null) => void;
+  hederaAccountId: string | null;
+  setHederaAccountId: (address: string | null) => void;
   isWhitelisted: boolean;
   setIsWhitelisted: (isWL: boolean) => void;
 }
 
 const EarlyAccessPage = ({
-  injectiveAddress,
-  setInjectiveAddress,
+  hederaAccountId,
+  setHederaAccountId,
   isWhitelisted,
   setIsWhitelisted,
 }: EarlyAccessPageProps) => {
   const [referralCode, setReferralCode] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [strategy, setStrategy] = useState<WalletType>();
-  const earlyAccessContract = "inj1kdvdz8et52xwsvz392799r6em3qzq5ggn2nkve";
+  const [walletType, setWalletType] = useState<string>();
 
   const checkIsWhitelisted = useCallback(async () => {
     try {
       setIsLoading(true);
-      const queryFromObject = toBase64({ is_whitelisted: { address: `${injectiveAddress}` } });
-
-      const contractState = await chainGrpcWasmApi.fetchSmartContractState(
-        earlyAccessContract,
-        queryFromObject
-      );
-
-      const decodedResponse = new TextDecoder().decode(
-        Uint8Array.from(Object.values(contractState.data))
-      );
-
-      const parsedResponse = JSON.parse(decodedResponse);
+      // Query Hedera contract state or REST API to check if user is whitelisted
+      // This is a placeholder for the actual implementation
+      const response = await fetch(`/api/hedera/whitelist?accountId=${hederaAccountId}`);
+      const data = await response.json();
 
       setIsLoading(false);
-      setIsWhitelisted(parsedResponse.is_whitelisted);
+      setIsWhitelisted(data.isWhitelisted);
     } catch (error) {
       setIsLoading(false);
       setIsWhitelisted(false);
-      console.error("Error querying contract:", error);
+      console.error("Error checking whitelist status:", error);
     }
-  }, [injectiveAddress]);
+  }, [hederaAccountId]);
 
   useEffect(() => {
-    if (injectiveAddress) {
+    if (hederaAccountId) {
       checkIsWhitelisted();
     }
-  }, [injectiveAddress, checkIsWhitelisted]);
+  }, [hederaAccountId, checkIsWhitelisted]);
 
-  const handleConnectWallet = async (wallet: WalletType) => {
+  const handleConnectWallet = async (walletProvider: string) => {
     try {
       setIsLoading(true);
-      const { address, token } = await connectToWallet(wallet);
+      const { accountId, token } = await connectToHederaWallet(walletProvider);
 
-      if (address) {
-        setStrategy(wallet);
-        setInjectiveAddress(address);
-        toast.success("Wallet Connected !", {
+      if (accountId) {
+        setWalletType(walletProvider);
+        setHederaAccountId(accountId);
+        toast.success("Wallet Connected!", {
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false,
@@ -116,39 +92,37 @@ const EarlyAccessPage = ({
   const joinEAP = async (ref_code: string) => {
     try {
       setIsLoading(true);
-      if (injectiveAddress) {
-        const msg = MsgExecuteContractCompat.fromJSON({
-          sender: injectiveAddress,
-          contractAddress: earlyAccessContract,
-          msg: {
-            join_whitelist: {
-              ref_code: ref_code || "", // Handle empty referral code
-            },
+      if (hederaAccountId) {
+        // Execute Hedera smart contract or API call to join whitelist
+        // This is a placeholder for the actual implementation
+        const response = await fetch('/api/hedera/join-whitelist', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          funds: {
-            denom: "inj",
-            amount: new BigNumberInBase(1).toWei().toFixed(),
-          },
-        });
-        const walletStrategy = new WalletStrategy({
-          chainId: ChainId.Mainnet,
-          wallet: strategy,
+          body: JSON.stringify({
+            accountId: hederaAccountId,
+            referralCode: ref_code || ""
+          }),
         });
 
-        const msgBroadcastClient = new MsgBroadcaster({
-          walletStrategy,
-          network: Network.Mainnet,
-        });
+        const data = await response.json();
 
-        await msgBroadcastClient.broadcast({
-          injectiveAddress: injectiveAddress,
-          msgs: msg,
-        });
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to join whitelist");
+        }
 
         localStorage.removeItem("token");
-        await crateInjectiveIfNotExists(injectiveAddress);
-        setInjectiveAddress(null);
-        toast.success("Payment success ! Please connect your wallet again.", {
+        await fetch('/api/users/create-hedera-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ hederaAccountId }),
+        });
+
+        setHederaAccountId(null);
+        toast.success("Payment success! Please connect your wallet again.", {
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false,
@@ -185,9 +159,9 @@ const EarlyAccessPage = ({
             Welcome to Kekius
           </CardTitle>
           <CardDescription className="text-zinc-400">
-            {injectiveAddress
+            {hederaAccountId
               ? "Join our Early Access Program"
-              : "Connect your wallet to get started"}
+              : "Connect your Hedera wallet to get started"}
           </CardDescription>
         </CardHeader>
 
@@ -198,84 +172,67 @@ const EarlyAccessPage = ({
             </div>
           ) : (
             <>
-              {injectiveAddress ? (
-                <div className="space-y-4">
-                  <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700 break-all">
-                    <p className="text-xs font-medium text-zinc-500 mb-1">Connected Address</p>
-                    <p className="text-sm font-medium text-zinc-300">{injectiveAddress}</p>
-                  </div>
-
-                  {!isWhitelisted && (
-                    <div className="space-y-6">
-
-                      <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 space-y-2">
-                        <p className="text-sm font-semibold text-zinc-300">EAP Benefits</p>
-                        <ul className="text-sm space-y-1 text-zinc-400 pl-5 list-disc">
-                          <li>Support Kekius development growth</li>
-                          <li>Early access to features</li>
-                          <li>Unlimited AI interactions</li>
-                          <li>Earn rewards for future</li>
-                        </ul>
-                      </div>
-
-
-                      <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 space-y-2">
-                        <p className="text-sm font-semibold text-zinc-300">Payment</p>
-                        <p className="text-sm text-zinc-400">
-                          This is a single-time payment. Funds cover LLM integration, services, infrastructure, and operational costs for platform stability.
-                        </p>
-                        <p className="text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-600 bg-clip-text text-transparent mt-2">5 HBAR</p>
-                      </div>
-
-
-                      <Input
-                        type="text"
-                        placeholder="Enter referral code (Optional)"
-                        value={referralCode}
-                        onChange={(e) => setReferralCode(e.target.value)}
-                        className="bg-zinc-800 border-zinc-700 text-zinc-100"
-                      />
-                      <Button
-                        className="w-full bg-gradient-to-r from-blue-400 to-cyan-600 hover:from-blue-500 hover:to-cyan-700 text-white"
-                        onClick={() => joinEAP(referralCode)}
-                      >
-                        Join Early Access (5 HBAR)
-                      </Button>
-                    </div>
-                  )}
-
+              {!hederaAccountId ? (
+                <div className="space-y-2">
+                  <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 py-5"
+                    onClick={() => handleConnectWallet('hashpack')}
+                  >
+                    <WalletIcon className="h-5 w-5" />
+                    Connect HashPack
+                  </Button>
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 py-5"
+                    onClick={() => handleConnectWallet('bladewallet')}
+                  >
+                    <WalletIcon className="h-5 w-5" />
+                    Connect Blade Wallet
+                  </Button>
                 </div>
               ) : (
-                <div className="grid gap-3">
-                  <Button
-                    variant="outline"
-                    className="w-full border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 bg-transparent "
-                    onClick={() => handleConnectWallet(Wallet.HashPack)}
-                  >
-                    <WalletIcon className="mr-2 h-4 w-4" />
-                    Connect with HashPack
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full border-zinc-800 hover:bg-zinc-800 hover:text-zinc-100 bg-transparent"
-                    onClick={() => handleConnectWallet(Wallet.Blade)}
-                  >
-                    <WalletIcon className="mr-2 h-4 w-4" />
-                    Connect with Blade
-                  </Button>
+                <div className="space-y-3">
+                  <div className="bg-zinc-800 rounded-lg p-3 break-words">
+                    <p className="text-xs text-zinc-500 mb-1">Connected Account</p>
+                    <p className="text-zinc-200">{hederaAccountId}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-zinc-400 mb-2">
+                      Have a referral code? Enter it below (optional):
+                    </p>
+                    <Input
+                      className="bg-zinc-800 border-zinc-700 text-zinc-200"
+                      placeholder="Referral code"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm text-zinc-400">
+                      Join our Early Access Program by paying a small fee of 1 HBAR
+                    </p>
+                    <Button
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-5"
+                      onClick={() => joinEAP(referralCode)}
+                    >
+                      Pay 1 HBAR to Join
+                    </Button>
+                    <p className="text-xs text-zinc-500 italic">
+                      Note: You will be asked to confirm this transaction in your wallet
+                    </p>
+                  </div>
                 </div>
               )}
             </>
           )}
         </CardContent>
 
-        {injectiveAddress && isWhitelisted && (
-          <CardFooter>
-            <p className="text-sm text-emerald-500 font-medium w-full text-center">
-              ✨ You have Early Access! ✨
-            </p>
-          </CardFooter>
-        )}
+        <CardFooter className="flex justify-center border-t border-zinc-800 pt-4">
+          <p className="text-xs text-zinc-500 text-center">
+            By connecting your wallet, you agree to our Terms of Service and Privacy Policy
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

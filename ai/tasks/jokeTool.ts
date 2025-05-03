@@ -1,5 +1,5 @@
 import { createChatMessage } from "@/app/utils";
-import { queryJectaJoke } from "../ai";
+import { queryKekiusJoke } from "../ai";
 import { querySoniaJoke } from "../sonia";
 
 export async function jokeTool(
@@ -14,22 +14,22 @@ export async function jokeTool(
     const randNumber = getRandomNumber();
 
     for (let i = 0; i < randNumber; i++) {
-        
-        const jectaResponse = await queryJectaJoke(latestMessage, messages);
-        messages.push({ sender: "jecta", text: jectaResponse });
+
+        const kekiusResponse = await queryKekiusJoke(latestMessage, messages);
+        messages.push({ sender: "kekius", text: kekiusResponse });
 
         addToChat(
             createChatMessage({
                 sender: "ai",
-                text: jectaResponse,
+                text: kekiusResponse,
                 type: "text",
                 intent: intent,
             })
         );
 
-        
-        if (jectaResponse) {
-            const soniaResponse = await querySoniaJoke(jectaResponse, messages);
+
+        if (kekiusResponse) {
+            const soniaResponse = await querySoniaJoke(kekiusResponse, messages);
             messages.push({ sender: "sonia", text: soniaResponse });
 
             addToChat(
@@ -41,8 +41,8 @@ export async function jokeTool(
                 })
             );
 
-            
-            if(soniaResponse){
+
+            if (soniaResponse) {
                 latestMessage = soniaResponse;
             }
         }
@@ -52,4 +52,4 @@ export async function jokeTool(
 const getRandomNumber = (): number => {
     const numbers = [1, 2, 3];
     return numbers[Math.floor(Math.random() * numbers.length)];
-  };
+};

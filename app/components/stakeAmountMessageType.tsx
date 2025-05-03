@@ -1,51 +1,68 @@
 import { useValidator } from "../providers/validatorProvider";
 import { useChat } from "../providers/chatProvider";
-import { MsgDelegate } from "@injectivelabs/sdk-ts";
 import { useState } from "react";
-import { createChatMessage,msgBroadcastClient } from "../utils";
+import { createChatMessage } from "../utils";
 
 const StakeAmountMessageType = ({
   handleExit,
-  injectiveAddress,
+  hederaAccountId,
   token
 }: {
-  injectiveAddress: string | null;
+  hederaAccountId: string | null;
   handleExit: () => void;
-  token:string;
+  token: string;
 }) => {
   const [amount, setAmount] = useState<string>();
   const { validatorAddress, setValidatorSelected } = useValidator();
   const { addMessage } = useChat();
+  const [isStaking, setIsStaking] = useState(false);
 
   const confirmStake = async () => {
     try {
-      if (amount === undefined || injectiveAddress === null) {
+      if (amount === undefined || hederaAccountId === null) {
         return;
       }
 
-      const msg = MsgDelegate.fromJSON({
-        injectiveAddress,
-        validatorAddress: validatorAddress,
-        amount: {
-          denom: "inj",
-          amount: String(Number(amount) * 10 ** 18),
+      setIsStaking(true);
+
+      // Call the Hedera API to stake tokens
+      const response = await fetch('/api/hedera/stake', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          accountId: hederaAccountId,
+          validatorAddress: validatorAddress,
+          amount: Number(amount)
+        }),
       });
-      const msgClient = msgBroadcastClient()
-      const res = await msgClient.broadcast({
-        injectiveAddress: injectiveAddress,
-        msgs: msg,
-      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to stake");
+      }
+
       addMessage(token,
         createChatMessage({
           sender: "ai",
-          text: `Stake success ! Here is your tx Hash : ${res.txHash}`,
+          text: `Stake success! Here is your transaction ID: ${data.transactionId}`,
           type: "text",
         })
       );
       setValidatorSelected(false);
     } catch (error) {
-
+      console.error("Error staking:", error);
+      addMessage(token,
+        createChatMessage({
+          sender: "ai",
+          text: `Failed to stake: ${error instanceof Error ? error.message : "Unknown error"}`,
+          type: "error",
+        })
+      );
+    } finally {
+      setIsStaking(false);
     }
   };
 
@@ -54,25 +71,27 @@ const StakeAmountMessageType = ({
       <h3 className="text-lg font-semibold mb-2">Enter Staking Amount:</h3>
       <input
         type="number"
-        placeholder="Amount in INJ"
+        placeholder="Amount in HBAR"
         className="p-2 rounded-lg bg-gray-700 text-white w-full"
         onChange={(e) => setAmount(e.target.value)}
-        //onKeyDown={(e) => e.key === "Enter" && handleStakeAmount(e.target.value)}
+        disabled={isStaking}
       />
-      <div className=" space-x-4">
+      <div className="space-x-4">
         <button
           type="button"
           onClick={handleExit}
           className="mt-3 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-300"
+          disabled={isStaking}
         >
           Exit
         </button>
         <button
           type="button"
           onClick={confirmStake}
-          className="mt-3 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-300"
+          className="mt-3 px-4 py-2 bg-white text-green-700 font-semibold rounded-lg hover:bg-gray-300"
+          disabled={isStaking || !amount}
         >
-          Confirm
+          {isStaking ? "Processing..." : "Confirm"}
         </button>
       </div>
     </div>

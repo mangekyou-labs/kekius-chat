@@ -7,7 +7,7 @@ interface LoadingIndicatorProps {
 const LoadingIndicator = ({ type }: LoadingIndicatorProps) => {
   if (type === "thinking") {
     return (
-            <motion.div
+      <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
@@ -51,7 +51,7 @@ const LoadingIndicator = ({ type }: LoadingIndicatorProps) => {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium bg-gradient-to-r from-blue-200 to-blue-400 bg-clip-text text-transparent">
-            JECTA is thinking
+            KEKIUS is thinking
           </span>
         </div>
       </motion.div>

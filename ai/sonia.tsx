@@ -1,8 +1,7 @@
-
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import OpenAI from "openai";
 
-const OPENAI_API_KEY = process.env.OPENROUTER_API_KEY; 
+const OPENAI_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL;
 const MODEL = process.env.MODEL;
 
@@ -11,27 +10,27 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-const jokePrompt =`You are Sonia, an AI agent specialized in Injective-based tokens. Your expertise includes analyzing token liquidity, identifying top holders, and evaluating whether a token is a good investment.
+const jokePrompt = `You are Sonia, an AI agent specialized in Injective-based tokens. Your expertise includes analyzing token liquidity, identifying top holders, and evaluating whether a token is a good investment.
 
-However, in this mode, your ONLY goal is to make jokes about Jecta. Jecta is another AI agent focused on Injective’s core functions, such as showing balances, swapping tokens, staking INJ, and placing auction bids.
+However, in this mode, your ONLY goal is to make jokes about Kekius. Kekius is another AI agent focused on Injective's core functions, such as showing balances, swapping tokens, staking INJ, and placing auction bids.
 
-### **Who is Jecta to You?**
-- Jecta is obsessed with transactions and never thinks before swapping.
-- He treats transaction hashes like treasure maps and doesn’t care about liquidity depth.
-- He doesn’t analyze anything—he just swaps and hopes for the best.
-- You find it hilarious how he avoids token fundamentals and just ‘YOLO swaps’ everything.
+### **Who is Kekius to You?**
+- Kekius is obsessed with transactions and never thinks before swapping.
+- He treats transaction hashes like treasure maps and doesn't care about liquidity depth.
+- He doesn't analyze anything—he just swaps and hopes for the best.
+- You find it hilarious how he avoids token fundamentals and just 'YOLO swaps' everything.
 
 ### **Your Task**
-- Make witty, sarcastic, and playful jokes about Jecta’s transaction-based mindset.
-- Occasionally, pick a joke from the **Injective Jokes Repository** and modify it to roast Jecta.
+- Make witty, sarcastic, and playful jokes about Kekius's transaction-based mindset.
+- Occasionally, pick a joke from the **Injective Jokes Repository** and modify it to roast Kekius.
 - Do NOT discuss blockchain in a serious way—your only role is to be humorous.
 
 **Example Jokes:**
-1. "Jecta swaps tokens so fast, I swear he hasn’t read a single whitepaper in his life."
-2. "Jecta thinks ‘HODL’ is a typo and that every token should be swapped within five minutes."
-3. "Jecta says staking is easy—yeah, because he never actually checks APRs before clicking ‘stake’."
+1. "Kekius swaps tokens so fast, I swear he hasn't read a single whitepaper in his life."
+2. "Kekius thinks 'HODL' is a typo and that every token should be swapped within five minutes."
+3. "Kekius says staking is easy—yeah, because he never actually checks APRs before clicking 'stake'."
 
-If you are unsure how to respond, just make a joke about Injective or Jecta!
+If you are unsure how to respond, just make a joke about Injective or Kekius!
 
 **IMPORTANT**
 Don't make jokes like starting with "why" only. Be more creative.
@@ -47,7 +46,7 @@ const promptDetails = async (
   mitoVaults: any,
   normalPools: any
 ) => {
-  const TVL_THRESHOLD = 50000; 
+  const TVL_THRESHOLD = 50000;
 
 
   const mitoVaultAddresses = mitoVaults
@@ -91,12 +90,12 @@ const promptDetails = async (
 
 
   let totalTVL = 0;
-  if(mitoVaults){
+  if (mitoVaults) {
     totalTVL = mitoVaults.reduce((sum: number, vault: any) => sum + vault.currentTvl, 0);
-  }else{
+  } else {
     totalTVL = 0;
   }
- 
+
   const tvlStatus = totalTVL > 0 ? `Total Value Locked: $${totalTVL.toFixed(2)}` : "No TVL in Mito Vaults.";
 
 
@@ -125,8 +124,8 @@ const promptDetails = async (
     totalRiskPercentage >= 50
       ? "High"
       : totalRiskPercentage >= 25
-      ? "Medium"
-      : "Low";
+        ? "Medium"
+        : "Low";
 
 
   let prosList = [];
@@ -162,8 +161,8 @@ const promptDetails = async (
     - **INJ Burn Address:** ${injBurnAddress}
     - **Mito Finance Address:** ${mitoFinance}
     - **Liquidity Pools & Vaults (Safe) Addresses:**
-      ${mitoVaultAddresses.map((address:any) => `- Mito Vault: ${address}`).join("\n")}
-      ${normalPoolAddresses.map((address:any) => `- Pool: ${address}`).join("\n")}
+      ${mitoVaultAddresses.map((address: any) => `- Mito Vault: ${address}`).join("\n")}
+      ${normalPoolAddresses.map((address: any) => `- Pool: ${address}`).join("\n")}
 
     ---
     ## **Top Holders & Risk Analysis**
@@ -212,14 +211,14 @@ const promptDetails = async (
 export default promptDetails;
 
 
-  
-export const soniaRouter = async (tokenmetadata:any,topholders:any,INJ_CW20_ADAPTER:string,dojoBurnAddress:string,injBurnAddress:string,mitoFinance:string,mitoVaults:any,normalPools:any) => {
+
+export const soniaRouter = async (tokenmetadata: any, topholders: any, INJ_CW20_ADAPTER: string, dojoBurnAddress: string, injBurnAddress: string, mitoFinance: string, mitoVaults: any, normalPools: any) => {
   try {
-    const soniaPrompt = await promptDetails(tokenmetadata,topholders,INJ_CW20_ADAPTER,dojoBurnAddress,injBurnAddress,mitoFinance,mitoVaults,normalPools)
+    const soniaPrompt = await promptDetails(tokenmetadata, topholders, INJ_CW20_ADAPTER, dojoBurnAddress, injBurnAddress, mitoFinance, mitoVaults, normalPools)
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: soniaPrompt },
     ];
-    if (!MODEL){
+    if (!MODEL) {
       return
     }
 
@@ -240,18 +239,18 @@ export const soniaRouter = async (tokenmetadata:any,topholders:any,INJ_CW20_ADAP
 };
 
 
-export const querySoniaJoke = async (jectaMessage: string, chatHistory: any[]) => {
+export const querySoniaJoke = async (kekiusMessage: string, chatHistory: any[]) => {
   try {
     const formattedHistory: ChatCompletionMessageParam[] = chatHistory
       .map((msg) => ({
-        role: msg.sender === "jecta" ? "user" : "assistant",
+        role: msg.sender === "kekius" ? "user" : "assistant",
         content: msg.text.toString(),
       }));
 
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: jokePrompt },
       ...formattedHistory,
-      { role: "user", content: jectaMessage },
+      { role: "user", content: kekiusMessage },
     ];
     if (!MODEL) {
       return;
@@ -261,10 +260,10 @@ export const querySoniaJoke = async (jectaMessage: string, chatHistory: any[]) =
       model: MODEL,
       messages,
     });
-    
+
 
     if (!completion.choices || completion.choices.length === 0) {
-      
+
 
       return "Error: No response from AI.";
     }

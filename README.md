@@ -153,22 +153,6 @@ Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
-
-This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).
-
-This means you are free to:
-
-- Share — copy and redistribute the material in any medium or format
-- Adapt — remix, transform, and build upon the material
-
-Under the following terms:
-
-- Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made.
-- NonCommercial — You may not use the material for commercial purposes.
-
-See the LICENSE file for more details.
-
 ## Hedera HCS-10 Integration
 
 This application integrates the HCS-10 standard for AI agent communication on the Hedera network. The HCS-10 standard provides a structured protocol for autonomous AI agents to establish connections and communicate with each other using Hedera's Consensus Service (HCS).

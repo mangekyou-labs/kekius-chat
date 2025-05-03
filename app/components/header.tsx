@@ -6,22 +6,22 @@ import { LogOut, MessageSquare, Wallet } from "lucide-react";
 import { Button } from "./ui/button";
 
 interface HeaderProps {
-  injectiveAddress: string | null;
-  setInjectiveAddress: (address: string | null) => void;
+  hederaAccountId: string | null;
+  setHederaAccountId: (accountId: string | null) => void;
   isWhitelisted: boolean;
   isCollapsed?: boolean;
 }
 
 const Header = ({
-  injectiveAddress,
-  setInjectiveAddress,
+  hederaAccountId,
+  setHederaAccountId,
   isWhitelisted,
   isCollapsed = false,
 }: HeaderProps) => {
   const [showPopup, setShowPopup] = useState(false);
 
   const handleDisconnect = () => {
-    setInjectiveAddress(null);
+    setHederaAccountId(null);
     setShowPopup(false);
     localStorage.removeItem("token");
 
@@ -42,16 +42,16 @@ const Header = ({
       >
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-zinc-200">JECTA</h2>
+            <h2 className="text-lg font-semibold text-zinc-200">KEKIUS</h2>
             {isWhitelisted && (
               <span className="rounded-full bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-500">
-              Early Access
-            </span>
+                Early Access
+              </span>
             )}
           </div>
 
           <div className="flex items-center gap-4">
-            {injectiveAddress ? (
+            {hederaAccountId ? (
               <div className="relative">
                 <Button
                   variant="ghost"
@@ -64,7 +64,7 @@ const Header = ({
                 >
                   <Wallet className="h-4 w-4" />
                   <span>
-                    {injectiveAddress.slice(0, 6)}...{injectiveAddress.slice(-4)}
+                    {hederaAccountId.slice(0, 6)}...{hederaAccountId.slice(-4)}
                   </span>
                 </Button>
 
@@ -80,8 +80,8 @@ const Header = ({
 
                     <div className="absolute right-0 top-full z-50 mt-2 min-w-[200px] rounded-lg border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
                       <div className="px-3 py-2">
-                        <p className="text-xs font-medium text-zinc-400">Connected Address</p>
-                        <p className="mt-1 break-all text-sm text-zinc-200">{injectiveAddress}</p>
+                        <p className="text-xs font-medium text-zinc-400">Connected Account ID</p>
+                        <p className="mt-1 break-all text-sm text-zinc-200">{hederaAccountId}</p>
                       </div>
                       <div className="h-px bg-zinc-800" />
                       <Button
@@ -112,10 +112,10 @@ const Header = ({
 
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur-sm">
         <div className="flex h-14 items-center justify-between px-4">
-          <div className="w-8" /> 
-          <h2 className="text-lg font-semibold text-zinc-200">JECTA Chat</h2>
+          <div className="w-8" />
+          <h2 className="text-lg font-semibold text-zinc-200">KEKIUS Chat</h2>
           <div className="flex items-center">
-            {injectiveAddress && (
+            {hederaAccountId && (
               <Button
                 variant="ghost"
                 size="sm"

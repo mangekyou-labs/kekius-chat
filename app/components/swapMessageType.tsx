@@ -1,6 +1,6 @@
-import { MsgExecuteContractCompat } from "@injectivelabs/sdk-ts";
 import type { ChatMessage, ContractInput } from "../types";
-import { createChatMessage, msgBroadcastClient } from "../utils";
+import { createChatMessage } from "../utils";
+import { useState } from "react";
 
 const SwapMessageType = ({
   text = "",
@@ -9,7 +9,7 @@ const SwapMessageType = ({
   contractInput,
   updateChat,
   updateExecuting,
-  injectiveAddress,
+  hederaAccountId,
   token,
 }: {
   text?: string;
@@ -18,79 +18,72 @@ const SwapMessageType = ({
   contractInput: ContractInput;
   updateChat: (cb: (prevChat: ChatMessage[]) => ChatMessage[]) => void;
   updateExecuting: (executing: boolean) => void;
-  injectiveAddress: string | null;
+  hederaAccountId: string | null;
   token: string;
 }) => {
+  const [error, setError] = useState<string | null>(null);
+
   const confirmSwap = async (contractInput: ContractInput) => {
     try {
-      if (injectiveAddress === null) {
+      if (hederaAccountId === null) {
         return;
       }
+
+      setError(null);
       updateExecuting(true);
-      if (contractInput.executeMsg.send !== undefined) {
-        const msg = MsgExecuteContractCompat.fromJSON({
-          sender: injectiveAddress,
-          contractAddress: contractInput.address,
-          exec: {
-            msg: contractInput.executeMsg.send,
-            action: "send",
-          },
-        });
-        const msgClient = msgBroadcastClient();
 
-        const res = await msgClient.broadcast({
-          injectiveAddress: injectiveAddress,
-          msgs: msg,
-        });
-        updateChat((prevChat) => [
-          ...prevChat,
-          createChatMessage({
-            sender: "ai",
-            text: `Swap success ! Here is your tx Hash : ${res.txHash}`,
-            type: "text",
-            intent: "general",
-          }),
-        ]);
-      } else {
-        const msg = MsgExecuteContractCompat.fromJSON({
-          sender: injectiveAddress,
-          contractAddress: contractInput.address,
-          exec: {
-            msg: contractInput.executeMsg.execute_routes,
-            action: "execute_routes",
-          },
-          funds: contractInput.funds,
-        });
-        const msgClient = msgBroadcastClient();
+      // Prepare the swap parameters
+      const swapParams = {
+        accountId: hederaAccountId,
+        sourceToken: contractInput.funds?.[0]?.denom || "",
+        sourceAmount: contractInput.funds?.[0]?.amount || "0",
+        targetToken: contractInput.executeMsg.execute_routes?.target_asset_denom ||
+          contractInput.executeMsg.send?.target_denom || "",
+        minReceiveAmount: contractInput.executeMsg.execute_routes?.minimum_receive ||
+          contractInput.executeMsg.send?.minimum_receive || "0"
+      };
 
-        const res = await msgClient.broadcast({
-          injectiveAddress: injectiveAddress,
-          msgs: msg,
-        });
-        updateChat((prevChat) => [
-          ...prevChat,
-          createChatMessage({
-            sender: "ai",
-            text: `Swap success ! Here is your tx Hash : ${res.txHash}`,
-            type: "text",
-            intent: "general",
-          }),
-        ]);
+      // Call the Hedera Swap API
+      const response = await fetch('/api/hedera/swap', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(swapParams),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Swap failed");
       }
+
+      // Update chat with successful swap message
+      updateChat((prevChat) => [
+        ...prevChat,
+        createChatMessage({
+          sender: "ai",
+          text: `Swap success! Here is your transaction ID: ${data.transactionId}`,
+          type: "text",
+          intent: "general",
+        }),
+      ]);
+
       updateExecuting(false);
     } catch (error) {
-      if (error instanceof Error) {
-        updateExecuting(false);
-        const errorMessage = error.message;
+      updateExecuting(false);
 
-        // Check if the error message indicates that the minimum receive amount condition failed.
-        if (errorMessage.includes("minimum receive amount")) {
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        setError(errorMessage);
+
+        // Check if the error message indicates minimum receive amount condition failed
+        if (errorMessage.toLowerCase().includes("minimum receive")) {
           updateChat((prevChat) => [
             ...prevChat,
             createChatMessage({
               sender: "ai",
-              text: `Swap failed, Error : 'The swap failed because your minimum receive amount is too high. ' +    
-            'Please adjust your slippage settings at your .env to proceed with the swap.'`,
+              text: `Swap failed: The swap failed because your minimum receive amount is too high. Please adjust your slippage settings to proceed with the swap.`,
               type: "text",
               intent: "general",
             }),
@@ -100,7 +93,7 @@ const SwapMessageType = ({
             ...prevChat,
             createChatMessage({
               sender: "ai",
-              text: `Swap failed, Error : ${errorMessage}`,
+              text: `Swap failed: ${errorMessage}`,
               type: "text",
               intent: "general",
             }),
@@ -112,7 +105,7 @@ const SwapMessageType = ({
           ...prevChat,
           createChatMessage({
             sender: "ai",
-            text: `Swap failed, Error : ${error}`,
+            text: `Swap failed: Unknown error occurred`,
             type: "text",
             intent: "general",
           }),
@@ -122,11 +115,18 @@ const SwapMessageType = ({
   };
 
   return (
-    <div className="p-3 rounded-xl bg-zinc-800 text-white max-w-[75%] ">
+    <div className="p-3 rounded-xl bg-zinc-800 text-white max-w-[75%]">
       <h3 className="text-lg font-semibold mb-2">Your Swap Details</h3>
       <div>{text}</div>
+
+      {error && (
+        <div className="mt-2 p-2 bg-red-900/50 border border-red-700 rounded text-red-300 text-sm">
+          {error}
+        </div>
+      )}
+
       {!executing && (
-        <div className=" space-x-4">
+        <div className="space-x-4">
           <button
             type="button"
             onClick={handleExit}
@@ -141,10 +141,17 @@ const SwapMessageType = ({
                 confirmSwap(contractInput);
               }
             }}
-            className="mt-3 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-300"
+            className="mt-3 px-4 py-2 bg-white text-green-700 font-semibold rounded-lg hover:bg-gray-300"
           >
             Confirm
           </button>
+        </div>
+      )}
+
+      {executing && (
+        <div className="mt-3 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
+          <span className="ml-2">Processing swap...</span>
         </div>
       )}
     </div>

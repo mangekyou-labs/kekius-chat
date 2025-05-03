@@ -24,7 +24,7 @@ const FACTORIES = [
   { name: "Astroport", address: "inj19aenkaj6qhymmt746av8ck4r8euthq3zmxr2r6" },
 ];
 
-const baseUrl = "https://app.jectadotai.com";
+const baseUrl = "https://app.kekiusdotai.com";
 
 export async function findLiquidityPools(contract: string) {
   const dojopool = await fetchPools("DojoSwap", contract);
@@ -355,16 +355,15 @@ export const generateWalletTableHTML = (data: any[], mitoVaults: any, normalPool
                   </thead>
                   <tbody>
                     ${data
-                      .map((item) => {
-                        const label = getLabel(item.wallet_id);
-                        return `
+      .map((item) => {
+        const label = getLabel(item.wallet_id);
+        return `
                           <tr>
                             <td style="padding: 8px; border-bottom: 1px solid #3b82f6; color: #dbeafe;">
                               ${item.wallet_id}
                             </td>
-                            <td style="padding: 8px; border-bottom: 1px solid #3b82f6; font-weight: bold; color: ${
-                              label ? "#60a5fa" : "#bfdbfe"
-                            };">
+                            <td style="padding: 8px; border-bottom: 1px solid #3b82f6; font-weight: bold; color: ${label ? "#60a5fa" : "#bfdbfe"
+          };">
                               ${label ? label : "—"}
                             </td>
                             <td style="padding: 8px; border-bottom: 1px solid #3b82f6; font-weight: bold; color: #60a5fa;">
@@ -375,8 +374,8 @@ export const generateWalletTableHTML = (data: any[], mitoVaults: any, normalPool
                             </td>
                           </tr>
                         `;
-                      })
-                      .join("")}
+      })
+      .join("")}
                   </tbody>
                 </table>
               </div>

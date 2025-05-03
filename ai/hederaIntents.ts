@@ -187,14 +187,14 @@ export const HEDERA_INTENTS: IntentDefinition = {
     agent_conversation: {
         description: "Handle conversations between agents.",
         examples: [
-            "Can Sonia and Jecta have a conversation?",
-            "Let Jecta and Sonia have a debate about Hedera.",
-            "What would Sonia say to Jecta about crypto?",
+            "Can Sonia and Kekius have a conversation?",
+            "Let Kekius and Sonia have a debate about Hedera.",
+            "What would Sonia say to Kekius about crypto?",
             "Have the agents discuss the future of blockchain."
         ],
         keywords: [
             "agents talk", "debate", "discussion", "conversation",
-            "talk to each other", "agents interact", "Sonia and Jecta"
+            "talk to each other", "agents interact", "Sonia and Kekius"
         ]
     },
     get_metrics: {

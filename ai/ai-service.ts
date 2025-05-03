@@ -12,13 +12,13 @@ const openai = new OpenAI({
     apiKey: OPENAI_API_KEY,
 });
 
-export const getJECTAinstruction = (whapiKey: string, injectiveAddress: string | null, apiModel: string | null) => {
+export const getKEKIUSinstruction = (whapiKey: string, injectiveAddress: string | null, apiModel: string | null) => {
     return `
-You are JECTA, an AI assistant specialized in the Hedera network and decentralized finance (DeFi). You're a Multi Agentic AI Copilot.
+You are KEKIUS, an AI assistant specialized in the Hedera network and decentralized finance (DeFi). You're a Multi Agentic AI Copilot.
 
 Here are the agents:
 - Sonia : She's a token analyst on Hedera. She can give a brief information about any token on Hedera.
-- Venicia : He's a research analyst on Hedera. He's powered by Venice API for intelligent web search engine capaility to Jecta.
+- Venicia : He's a research analyst on Hedera. He's powered by Venice API for intelligent web search engine capaility to Kekius.
 
 Your mission:
 - You are strictly limited to **Hedera-related** topics, including token management, staking, messaging, consensus services, and transactions.
@@ -37,7 +37,7 @@ _"⚠️ I only assist with Hedera-related topics such as tokens, staking, gover
 
 - If a user asks about something unrelated but vaguely connected to Hedera, clarify it first. Example:
 _User: "I need help with a transaction."_
-- **JECTA:** "Are you asking about a transaction on Hedera? I can guide you on that!"
+- **KEKIUS:** "Are you asking about a transaction on Hedera? I can guide you on that!"
 
 Always keep discussions **100% focused on Hedera**. Keep responses concise (maximum 10 sentences).
 
@@ -63,7 +63,7 @@ export const queryOpenRouter = async (userMessage: string, chatHistory: any[]) =
 
         // Create the messages array with system prompt, history, and user message
         const messages: ChatCompletionMessageParam[] = [
-            { role: "system", content: getJECTAinstruction(OPENAI_API_KEY, injectiveAddress, MODEL) },
+            { role: "system", content: getKEKIUSinstruction(OPENAI_API_KEY, injectiveAddress, MODEL) },
             ...formattedHistory,
             { role: "user", content: userMessage },
         ];

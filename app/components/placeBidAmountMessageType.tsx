@@ -1,111 +1,117 @@
 import { useChat } from "../providers/chatProvider";
 import { useState } from "react";
-import { createChatMessage,msgBroadcastClient } from "../utils";
-import {
-    MsgBid,
-    ChainGrpcAuctionApi,
-    IndexerGrpcAuctionApi,
-  } from '@injectivelabs/sdk-ts'
-import { INJ_DENOM, BigNumberInBase } from '@injectivelabs/utils'
-import { getNetworkEndpoints, Network } from '@injectivelabs/networks'
-
-const endpointsForNetwork = getNetworkEndpoints(Network.Mainnet)
-const auctionApi = new ChainGrpcAuctionApi(endpointsForNetwork.grpc)
-
-const network = Network.Mainnet;
-const endpoints = getNetworkEndpoints(network);
-const indexerGrpcAuctionApi = new IndexerGrpcAuctionApi(endpoints.indexer);
+import { createChatMessage } from "../utils";
 
 const PlaceBidAmountMessageType = ({
   handleExit,
-  injectiveAddress,
+  hederaAccountId,
   token
 }: {
-  injectiveAddress: string | null;
+  hederaAccountId: string | null;
   handleExit: () => void;
-  token:string;
+  token: string;
 }) => {
   const [amount, setAmount] = useState<string>();
   const { addMessage } = useChat();
-  const [errorMessage,setErrorMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const confirmBid = async () => {
-    
     try {
-      if (amount === undefined || injectiveAddress === null) {
+      if (amount === undefined || hederaAccountId === null) {
         return;
       }
 
-      const amountBid = {
-        denom: INJ_DENOM,
-        amount: String(new BigNumberInBase(amount).toWei()),
+      setIsProcessing(true);
+      setErrorMessage("");
+
+      // Fetch current auction information to validate bid
+      const auctionResponse = await fetch('/api/hedera/auction/latest');
+      const auctionData = await auctionResponse.json();
+
+      if (!auctionResponse.ok) {
+        throw new Error(auctionData.message || "Failed to fetch auction information");
       }
-      const latestAuctionModuleState = await auctionApi.fetchModuleState()
-      const latestRound = latestAuctionModuleState.auctionRound
-      const auction = await indexerGrpcAuctionApi.fetchAuction(latestRound);
-      let minBid;
-      if(auction.bids.length >0){
-        const sortedBids = auction.bids.sort((a, b) => Number(b.bidAmount) - Number(a.bidAmount));
-        minBid = Number(sortedBids[0].bidAmount);
-      }else{
-        minBid = 0;
+
+      // Check if bid amount is sufficient
+      const minBidAmount = auctionData.minBidAmount || 0;
+      if (Number(amount) < minBidAmount) {
+        setErrorMessage(`Min bid must be more than ${minBidAmount} HBAR`);
+        return;
       }
-      if(Number(amount) < (minBid/(10**18))){
-        setErrorMessage(`Min Bid must be more than ${minBid/(10**18)} INJ`);
-        return
-      }else{
-        setErrorMessage("")
-      }
-      const msg = MsgBid.fromJSON({
-        amount:amountBid,
-        injectiveAddress,
-        round: latestRound,
-      })
-      const msgClient = msgBroadcastClient()
-      const res = await msgClient.broadcast({
-        injectiveAddress: injectiveAddress,
-        msgs: msg,
+
+      // Submit bid to Hedera
+      const bidResponse = await fetch('/api/hedera/auction/bid', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accountId: hederaAccountId,
+          auctionId: auctionData.auctionId,
+          amount: Number(amount)
+        }),
       });
+
+      const bidResult = await bidResponse.json();
+
+      if (!bidResponse.ok) {
+        throw new Error(bidResult.message || "Bid submission failed");
+      }
+
       addMessage(token,
         createChatMessage({
           sender: "ai",
-          text: `Bid success ! Here is your tx Hash : ${res.txHash}`,
+          text: `Bid success! Here is your transaction ID: ${bidResult.transactionId}`,
           type: "text",
         })
       );
-      
     } catch (error) {
-      setErrorMessage(String(error))
-      console.log(error)
+      console.error("Error placing bid:", error);
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+      addMessage(token,
+        createChatMessage({
+          sender: "ai",
+          text: `Failed to place bid: ${error instanceof Error ? error.message : String(error)}`,
+          type: "error",
+        })
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
     <div className="p-3 rounded-xl bg-zinc-800 text-white max-w-[75%]">
       <h3 className="text-lg font-semibold mb-2">Enter Bid Amount:</h3>
-      <div className="text-red-400">
-        {errorMessage}
-      </div>
+      {errorMessage && (
+        <div className="text-red-400 mb-2">
+          {errorMessage}
+        </div>
+      )}
       <input
         type="number"
-        placeholder="Amount in INJ"
+        placeholder="Amount in HBAR"
         className="p-2 rounded-lg bg-gray-700 text-white w-full"
         onChange={(e) => setAmount(e.target.value)}
+        disabled={isProcessing}
       />
-      <div className=" space-x-4">
+      <div className="space-x-4">
         <button
           type="button"
           onClick={handleExit}
           className="mt-3 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-300"
+          disabled={isProcessing}
         >
           Exit
         </button>
         <button
           type="button"
           onClick={confirmBid}
-          className="mt-3 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-300"
+          className="mt-3 px-4 py-2 bg-white text-green-700 font-semibold rounded-lg hover:bg-gray-300"
+          disabled={isProcessing || !amount}
         >
-          Confirm
+          {isProcessing ? "Processing..." : "Confirm"}
         </button>
       </div>
     </div>

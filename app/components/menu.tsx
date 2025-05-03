@@ -39,15 +39,15 @@ interface ChatItem {
 interface MenuProps {
   loadChatHistory: (chatId: string) => void;
   createNewChatButton: () => void;
-  hederaAddress: string | null;
-  setHederaAddress: (address: string | null) => void;
+  hederaAccountId: string | null;
+  setHederaAccountId: (address: string | null) => void;
   isWhitelisted: boolean;
   newChatCreated: boolean;
 }
 
 const Menu = ({
-  hederaAddress,
-  setHederaAddress,
+  hederaAccountId,
+  setHederaAccountId,
   loadChatHistory,
   createNewChatButton,
   isWhitelisted,
@@ -60,7 +60,7 @@ const Menu = ({
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
   function createTweetAndRedirect(refCode: string) {
-    const tweetText = `I'm using @jectadotai on Early Access right now ! Use my referal code to get your early access too.\n\nMy ref code : ${refCode} .\n\nTry it now ! https://www.jectadotai.com`;
+    const tweetText = `I'm using @kekiusdotai on Early Access right now! Use my referral code to get your early access too.\n\nMy ref code: ${refCode}.\n\nTry it now! https://www.kekiusdotai.com`;
     const twitterBaseUrl = "https://twitter.com/intent/tweet";
     const encodedTweet = encodeURIComponent(tweetText);
     const tweetUrl = `${twitterBaseUrl}?text=${encodedTweet}`;
@@ -69,11 +69,11 @@ const Menu = ({
   }
 
   useEffect(() => {
-    if (!hederaAddress) {
+    if (!hederaAccountId) {
       return;
     }
     const fetchLastChatNames = async () => {
-      const response = await getLastChatNames(hederaAddress || "");
+      const response = await getLastChatNames(hederaAccountId || "");
       if (response) {
         const sortedChats = response.sort(
           (a: ChatItem, b: ChatItem) =>
@@ -87,15 +87,15 @@ const Menu = ({
 
   useEffect(() => {
     const getRef = async () => {
-      if (isWhitelisted && hederaAddress) {
-        const response = await getRefCodeDetails(hederaAddress);
+      if (isWhitelisted && hederaAccountId) {
+        const response = await getRefCodeDetails(hederaAccountId);
         if (response) {
           setRefDetails(response);
         }
       }
     };
     getRef();
-  }, [isWhitelisted, hederaAddress]);
+  }, [isWhitelisted, hederaAccountId]);
 
   const copyToClipboard = () => {
     if (refDetails?.ref_code) {
@@ -251,8 +251,8 @@ const Menu = ({
   return (
     <>
       <Header
-        hederaAddress={hederaAddress}
-        setHederaAddress={setHederaAddress}
+        hederaAccountId={hederaAccountId}
+        setHederaAccountId={setHederaAccountId}
         isWhitelisted={isWhitelisted}
         isCollapsed={isCollapsed}
       />
