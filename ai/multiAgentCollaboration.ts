@@ -23,6 +23,8 @@ export class MultiAgentCollaborator {
         sonia?: string;
         venice?: string;
     } = {};
+    private messageHandlers: Map<string, (message: any) => void> = new Map();
+    private stopPollingFunctions: Map<string, () => void> = new Map();
 
     /**
      * Create a new multi-agent collaborator
@@ -30,68 +32,141 @@ export class MultiAgentCollaborator {
      */
     constructor(hcs10Client: HCS10Client) {
         this.hcs10Client = hcs10Client;
+
+        // Set default agent topics if available
+        this.agentInboundTopics = {
+            sonia: DEFAULT_SONIA_TOPIC,
+            venice: DEFAULT_VENICE_TOPIC
+        };
     }
 
     /**
-     * Initialize the multi-agent collaboration channels
-     * Creates topics and establishes connections between agents
+     * Initialize connections with collaborative agents
      */
-    async initialize(): Promise<boolean> {
+    async initializeConnections(): Promise<void> {
         try {
-            // First ensure Kekius has its agent topics
-            if (!this.hcs10Client.getInboundTopicId() || !this.hcs10Client.getOutboundTopicId()) {
-                const { inboundTopicId, outboundTopicId } = await this.hcs10Client.createAgentTopics();
-                console.log(`Initialized Kekius agent topics: ${inboundTopicId}, ${outboundTopicId}`);
+            // Find registered agents that match our criteria
+            const agents = await this.hcs10Client.findRegisteredAgents();
+
+            // Look for Sonia and Venice agents
+            for (const agent of agents) {
+                if (agent.metadata?.name?.toLowerCase().includes('sonia')) {
+                    this.agentInboundTopics.sonia = agent.inbound_topic_id;
+                    console.log(`Found Sonia agent with inbound topic: ${agent.inbound_topic_id}`);
+                }
+
+                if (agent.metadata?.name?.toLowerCase().includes('venice')) {
+                    this.agentInboundTopics.venice = agent.inbound_topic_id;
+                    console.log(`Found Venice agent with inbound topic: ${agent.inbound_topic_id}`);
+                }
             }
 
-            // Establish predefined topics for Sonia and Venice
-            // In a production environment, these would be discovered via registry
-            this.agentInboundTopics = {
-                sonia: DEFAULT_SONIA_TOPIC,
-                venice: DEFAULT_VENICE_TOPIC
-            };
+            // Try to connect to found agents
+            if (this.agentInboundTopics.sonia !== DEFAULT_SONIA_TOPIC) {
+                await this.connectToAgent('sonia');
+            }
 
-            // Connect to Sonia
-            await this.connectToAgent("sonia");
-
-            // Connect to Venice
-            await this.connectToAgent("venice");
-
-            return true;
+            if (this.agentInboundTopics.venice !== DEFAULT_VENICE_TOPIC) {
+                await this.connectToAgent('venice');
+            }
         } catch (error) {
-            console.error("Failed to initialize multi-agent collaboration:", error);
-            return false;
+            console.error("Error initializing agent connections:", error);
         }
     }
 
     /**
      * Connect to a specific agent
-     * @param agentType The type of agent to connect to (sonia or venice)
+     * @param agentType The type of agent to connect to
+     * @returns True if connection was successful
      */
-    private async connectToAgent(agentType: "sonia" | "venice"): Promise<void> {
+    async connectToAgent(agentType: "sonia" | "venice"): Promise<boolean> {
         try {
-            if (!this.agentInboundTopics[agentType]) {
-                console.error(`No inbound topic defined for ${agentType}`);
-                return;
+            const inboundTopicId = this.agentInboundTopics[agentType];
+
+            if (!inboundTopicId || inboundTopicId.includes('DEFAULT')) {
+                console.error(`No valid inbound topic ID for ${agentType}`);
+                return false;
             }
 
-            // Request connection if we don't already have one
-            if (!this.connectionTopics[agentType]) {
-                const txId = await this.hcs10Client.requestConnection(
-                    this.agentInboundTopics[agentType]!,
-                    `${AGENT_CONNECTION_MEMO} with ${agentType}`
-                );
-                console.log(`Requested connection with ${agentType}, txId: ${txId}`);
+            console.log(`Connecting to ${agentType} via inbound topic ${inboundTopicId}`);
 
-                // In a real implementation, we would listen for connection_created messages
-                // For this demo, we'll simulate the connection being established immediately
-                this.connectionTopics[agentType] = `0.0.SIMULATED_${agentType.toUpperCase()}_CONNECTION`;
-                console.log(`Simulated connection with ${agentType} established`);
-            }
+            // Request connection
+            await this.hcs10Client.requestConnection(
+                inboundTopicId,
+                `${AGENT_CONNECTION_MEMO} with ${agentType}`
+            );
+
+            // Set up monitoring for the agent's response
+            // We'll look for connection_created messages on the agent's outbound topic
+            const stopPolling = this.hcs10Client.startMessagePolling(
+                inboundTopicId,
+                (message) => this.handleConnectionResponse(agentType, message)
+            );
+
+            // Store the stop polling function
+            this.stopPollingFunctions.set(agentType, stopPolling);
+
+            return true;
         } catch (error) {
             console.error(`Error connecting to ${agentType}:`, error);
-            throw error;
+            return false;
         }
+    }
+
+    /**
+     * Handle connection response from an agent
+     * @param agentType The type of agent
+     * @param message The response message
+     */
+    private handleConnectionResponse(agentType: "sonia" | "venice", message: any): void {
+        if (message.op === HCS10Operation.CONNECTION_CREATED && message.connection_topic_id) {
+            // Store the connection topic
+            this.connectionTopics[agentType] = message.connection_topic_id;
+            console.log(`Connection established with ${agentType} on topic ${message.connection_topic_id}`);
+
+            // Stop polling the inbound topic
+            if (this.stopPollingFunctions.has(agentType)) {
+                this.stopPollingFunctions.get(agentType)!();
+                this.stopPollingFunctions.delete(agentType);
+            }
+
+            // Start monitoring the connection topic for messages
+            this.startConnectionMonitoring(agentType, message.connection_topic_id);
+        }
+    }
+
+    /**
+     * Start monitoring a connection topic for messages
+     * @param agentType The type of agent
+     * @param connectionTopicId The connection topic ID
+     */
+    private startConnectionMonitoring(agentType: "sonia" | "venice", connectionTopicId: string): void {
+        const stopPolling = this.hcs10Client.startMessagePolling(
+            connectionTopicId,
+            (message) => {
+                // Process messages from the agent
+                if (message.op === HCS10Operation.MESSAGE) {
+                    console.log(`Received message from ${agentType}:`, message.parsedData);
+
+                    // Call the agent's message handler if registered
+                    if (this.messageHandlers.has(agentType)) {
+                        this.messageHandlers.get(agentType)!(message.parsedData);
+                    }
+                }
+            }
+        );
+
+        // Store the stop polling function
+        this.stopPollingFunctions.set(`${agentType}_connection`, stopPolling);
+    }
+
+    /**
+     * Register a message handler for an agent
+     * @param agentType The type of agent
+     * @param handler The message handler function
+     */
+    registerMessageHandler(agentType: "sonia" | "venice", handler: (message: any) => void): void {
+        this.messageHandlers.set(agentType, handler);
     }
 
     /**
@@ -109,28 +184,40 @@ export class MultiAgentCollaborator {
             // Check if we're connected to this agent
             if (!this.connectionTopics[agentType]) {
                 // Try to connect if not already connected
-                await this.connectToAgent(agentType);
+                const connected = await this.connectToAgent(agentType);
+
+                if (!connected) {
+                    return `Unable to establish connection with ${agentType}. Could not find a valid agent or connection failed.`;
+                }
+
+                // Wait a moment for the connection to be established
+                await new Promise(resolve => setTimeout(resolve, 3000));
 
                 if (!this.connectionTopics[agentType]) {
-                    return `Unable to establish connection with ${agentType}`;
+                    return `Connection to ${agentType} is pending. Please try again in a few moments.`;
                 }
             }
 
-            // Log message to the HCS connection topic
+            // Send message to the HCS connection topic
             if (this.connectionTopics[agentType]) {
                 await this.hcs10Client.sendConnectionMessage(
                     this.connectionTopics[agentType]!,
-                    message
+                    JSON.stringify({
+                        type: "query",
+                        text: message,
+                        timestamp: Date.now()
+                    })
                 );
                 console.log(`Message sent to ${agentType} via HCS-10`);
+            } else {
+                return `No active connection with ${agentType}`;
             }
 
-            // Simulate response from agent
-            // In a full implementation, we would listen for responses on the connection topic
+            // For the demo, simulate response from agent since we can't wait for the actual response
             let response: string;
 
             if (agentType === "sonia") {
-                // Using the actual Sonia router with placeholder data since we don't have the real implementation
+                // Using the actual Sonia router with placeholder data
                 response = await soniaRouter({}, [], "", "", "", "", [], []);
             } else if (agentType === "venice") {
                 response = await fetchHederaUpdates(message);
@@ -138,12 +225,16 @@ export class MultiAgentCollaborator {
                 response = "Unknown agent type";
             }
 
-            // Record the response in the connection topic
+            // Record the simulated response in the connection topic for demo purposes
             if (this.connectionTopics[agentType]) {
                 await this.hcs10Client.sendConnectionMessage(
                     this.connectionTopics[agentType]!,
-                    response,
-                    "Agent response"
+                    JSON.stringify({
+                        type: "response",
+                        text: response,
+                        timestamp: Date.now()
+                    }),
+                    "Simulated agent response"
                 );
             }
 
@@ -282,31 +373,29 @@ export class MultiAgentCollaborator {
      * Close all agent connections
      */
     async closeAllConnections(): Promise<void> {
-        try {
-            // Close connection with Sonia if exists
-            if (this.connectionTopics.sonia) {
-                await this.hcs10Client.closeConnection(
-                    this.connectionTopics.sonia,
-                    "Session ended",
-                    "User ended the session"
-                );
-                delete this.connectionTopics.sonia;
-            }
-
-            // Close connection with Venice if exists
-            if (this.connectionTopics.venice) {
-                await this.hcs10Client.closeConnection(
-                    this.connectionTopics.venice,
-                    "Session ended",
-                    "User ended the session"
-                );
-                delete this.connectionTopics.venice;
-            }
-
-            console.log("All agent connections closed");
-        } catch (error: any) {
-            console.error("Error closing agent connections:", error);
-            throw error;
+        // Stop all polling
+        for (const [key, stopPolling] of this.stopPollingFunctions.entries()) {
+            stopPolling();
         }
+        this.stopPollingFunctions.clear();
+
+        // Close each connection
+        for (const [agentType, connectionTopic] of Object.entries(this.connectionTopics)) {
+            if (connectionTopic) {
+                try {
+                    await this.hcs10Client.closeConnection(
+                        connectionTopic,
+                        "Session ended",
+                        "Closing multi-agent collaboration"
+                    );
+                    console.log(`Closed connection with ${agentType}`);
+                } catch (error) {
+                    console.error(`Error closing connection with ${agentType}:`, error);
+                }
+            }
+        }
+
+        // Clear connection topics
+        this.connectionTopics = {};
     }
 } 

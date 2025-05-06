@@ -12,6 +12,8 @@
     "@cosmjs/launchpad": "^0.27.1",
     "@ethersproject/providers": "^5.7.2",
     "@hashgraph/sdk": "^2.37.0",
+    "@hashgraphonline/standards-sdk": "^1.2.0",
+    "@hashgraphonline/hashinal-wc": "^1.1.0",
     "@langchain/core": "^0.3.26",
     "@langchain/langgraph": "^0.2.34",
     "@langchain/openai": "^0.3.16",

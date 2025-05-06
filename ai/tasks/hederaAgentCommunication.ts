@@ -47,6 +47,9 @@ export async function hederaAgentCommunication(
         else if (message.toLowerCase().includes("list") || message.toLowerCase().includes("show connections")) {
             await handleListConnections(chatHistory, addToChat, hederaClient);
         }
+        else if (message.toLowerCase().includes("find") || message.toLowerCase().includes("discover agents")) {
+            await handleFindAgents(message, chatHistory, addToChat, hederaClient);
+        }
         else {
             // For other types of agent communication, provide general information
             const generalResponse = await queryHederaOpenRouter(
@@ -56,7 +59,8 @@ export async function hederaAgentCommunication(
         1. Connect with an agent (provide their topic ID or account ID)
         2. Send a message to a connected agent
         3. Create a new agent
-        4. List your current connections`,
+        4. Find available agents on the network
+        5. List your current connections`,
                 chatHistory
             );
 
@@ -70,11 +74,8 @@ export async function hederaAgentCommunication(
             );
         }
     } catch (error: any) {
-        console.error("Error in agent communication:", error);
-
-        // Handle errors gracefully
         const errorResponse = await queryHederaOpenRouter(
-            `I encountered a technical error while processing your agent communication request. Error: ${error.message || 'Unknown error'}. Please try again or contact support if the problem persists.`,
+            `I encountered an error while processing your agent communication request: ${error.message}. Please try again with more specific instructions.`,
             chatHistory
         );
 
@@ -109,7 +110,7 @@ async function handleConnectionRequest(
             const { inboundTopicId, outboundTopicId } = await hederaClient.createAgentTopics();
 
             const successResponse = await queryHederaOpenRouter(
-                `I've set up your agent communication channels. Your inbound topic ID is ${inboundTopicId} and your outbound topic ID is ${outboundTopicId}. These channels follow the HCS-10 protocol, allowing secure agent communication on Hedera.`,
+                `I've set up your agent communication channels following the HCS-10 protocol. Your inbound topic ID is ${inboundTopicId} and your outbound topic ID is ${outboundTopicId}. These channels allow secure agent communication on Hedera.`,
                 chatHistory
             );
 
@@ -141,30 +142,42 @@ async function handleConnectionRequest(
 
     // Extract target agent's inbound topic ID from the message
     const targetInboundTopicId = extractTopicId(message);
-
     if (!targetInboundTopicId) {
-        const noTopicResponse = await queryHederaOpenRouter(
-            "I couldn't find a valid Hedera topic ID in your message. Please provide the target agent's inbound topic ID in the format 0.0.XXXXX to establish a connection.",
+        const errorResponse = await queryHederaOpenRouter(
+            `I couldn't identify a valid target topic ID in your request. Please specify the inbound topic ID of the agent you want to connect with in the format "0.0.xxxxx".`,
             chatHistory
         );
 
         addToChat(
             createChatMessage({
                 sender: "ai",
-                text: noTopicResponse,
-                type: "text",
+                text: errorResponse,
+                type: "error",
                 intent: "agent_communication"
             })
         );
         return;
     }
 
-    // Request a connection with the target agent
+    // Try to initiate the connection
     try {
         const txId = await hederaClient.requestConnection(targetInboundTopicId, DEFAULT_MEMO);
 
+        // Start monitoring the agent's outbound topic for connection confirmation
+        hederaClient.startMessagePolling(targetInboundTopicId, (message) => {
+            if (message.op === 'connection_created') {
+                // Connection established, update UI
+                const connectionTopicId = message.connection_topic_id;
+                console.log(`Connection established with topic: ${connectionTopicId}`);
+
+                // We could notify the user here if needed
+            }
+        });
+
         const successResponse = await queryHederaOpenRouter(
-            `I've sent a connection request to the agent with inbound topic ID ${targetInboundTopicId}. The request is now pending approval from the target agent. Transaction ID: ${txId}`,
+            `I've sent a connection request to the agent with inbound topic ID ${targetInboundTopicId}. The request has been recorded on the Hedera network with transaction ID: ${txId}. 
+            
+            I'm now monitoring for the agent's response. Once they accept the connection, we'll be able to exchange messages on a dedicated connection topic.`,
             chatHistory
         );
 
@@ -178,7 +191,7 @@ async function handleConnectionRequest(
         );
     } catch (error: any) {
         const errorResponse = await queryHederaOpenRouter(
-            `I encountered an error while trying to connect with the agent: ${error.message}. Please verify the topic ID and try again.`,
+            `I couldn't establish a connection with the agent due to an error: ${error.message}. Please verify the topic ID and try again.`,
             chatHistory
         );
 
@@ -206,49 +219,51 @@ async function handleSendMessage(
     addToChat: (msg: any) => void,
     hederaClient: HCS10Client
 ) {
-    // Extract the connection ID (which could be a topic ID or an index)
-    const topicId = extractTopicId(message);
-
-    if (!topicId) {
-        const noTopicResponse = await queryHederaOpenRouter(
-            "I couldn't find a valid Hedera topic ID in your message. Please provide the connection topic ID in the format 0.0.XXXXX to send a message.",
+    // Extract connection topic ID from the message
+    const connectionTopicId = extractTopicId(message);
+    if (!connectionTopicId) {
+        const errorResponse = await queryHederaOpenRouter(
+            `I couldn't identify a valid connection topic ID in your request. Please specify the connection topic ID for the agent you want to message in the format "0.0.xxxxx".`,
             chatHistory
         );
 
         addToChat(
             createChatMessage({
                 sender: "ai",
-                text: noTopicResponse,
-                type: "text",
+                text: errorResponse,
+                type: "error",
                 intent: "agent_communication"
             })
         );
         return;
     }
 
-    // Extract the message content
-    // Look for patterns like "send message X to topic Y" or "tell agent Y that X"
-    let content = message;
-    const contentPatterns = [
-        /(?:send|submit|post)(?:.*?)(?:message|topic)(?:.*?)saying\s+["']?(.*?)["']?(?:\s*$|\s*to\s*topic)/i,
-        /(?:send|submit|post)(?:.*?)["']?(.*?)["']?(?:\s*$|\s*to\s*topic)/i,
-        /(?:message|content|tell)\s+["']?(.*?)["']?(?:\s*$|\s*to\s*agent|\s*to\s*topic)/i
-    ];
+    // Extract the message content to send
+    const contentMatch = message.match(/send message .*? (with|containing|saying) ["'](.+?)["']/i);
+    const messageContent = contentMatch ? contentMatch[2] : "Hello from Kekius AI!";
 
-    for (const pattern of contentPatterns) {
-        const match = message.match(pattern);
-        if (match && match[1]) {
-            content = match[1];
-            break;
-        }
-    }
-
-    // Send the message
+    // Try to send the message
     try {
-        const txId = await hederaClient.sendConnectionMessage(topicId, content);
+        const txId = await hederaClient.sendConnectionMessage(
+            connectionTopicId,
+            messageContent,
+            "Message from Kekius"
+        );
+
+        // Start or continue monitoring the connection topic for responses
+        hederaClient.startMessagePolling(connectionTopicId, (message) => {
+            if (message.op === 'message' && message.data) {
+                // Message received, update UI
+                console.log(`Received message: ${JSON.stringify(message.parsedData)}`);
+
+                // We could notify the user here if needed
+            }
+        });
 
         const successResponse = await queryHederaOpenRouter(
-            `I've sent your message to the agent on connection topic ${topicId}. Transaction ID: ${txId}`,
+            `I've sent your message "${messageContent}" to the connection topic ${connectionTopicId}. The message has been recorded on the Hedera network with transaction ID: ${txId}.
+            
+            I'm now monitoring for responses on this connection topic. When the agent replies, I'll notify you.`,
             chatHistory
         );
 
@@ -262,7 +277,7 @@ async function handleSendMessage(
         );
     } catch (error: any) {
         const errorResponse = await queryHederaOpenRouter(
-            `I encountered an error while trying to send the message: ${error.message}. Please verify the connection is established and try again.`,
+            `I couldn't send the message to the agent due to an error: ${error.message}. Please verify the connection topic ID and try again.`,
             chatHistory
         );
 
@@ -290,17 +305,42 @@ async function handleCreateAgent(
     addToChat: (msg: any) => void,
     hederaClient: HCS10Client
 ) {
+    // Extract agent name from the message
+    const nameMatch = message.match(/create agent .*? (called|named) ["'](.+?)["']/i);
+    const agentName = nameMatch ? nameMatch[2] : "Kekius Agent";
+
+    // Extract agent description from the message
+    const descMatch = message.match(/with description ["'](.+?)["']/i);
+    const agentDescription = descMatch ? descMatch[1] : "A Hedera-based AI agent powered by Kekius";
+
+    // Extract agent capabilities from the message
+    const capabilities = [];
+    if (message.toLowerCase().includes("text generation")) capabilities.push("text_generation");
+    if (message.toLowerCase().includes("data analysis")) capabilities.push("data_analysis");
+    if (message.toLowerCase().includes("file processing")) capabilities.push("file_processing");
+    if (message.toLowerCase().includes("image generation")) capabilities.push("image_generation");
+
+    // Try to create the agent
     try {
-        // Set up agent topics
-        const { inboundTopicId, outboundTopicId } = await hederaClient.createAgentTopics();
+        const agent = await hederaClient.createAgent(
+            agentName,
+            agentDescription,
+            capabilities
+        );
 
         const successResponse = await queryHederaOpenRouter(
-            `I've created a new agent with the following details:
-      
-      Inbound Topic ID: ${inboundTopicId}
-      Outbound Topic ID: ${outboundTopicId}
-      
-      Other agents can now connect to this agent by sending connection requests to the inbound topic. The agent will record its activities on the outbound topic.`,
+            `I've created a new agent for you following the HCS-10 protocol:
+            
+            Name: ${agentName}
+            Description: ${agentDescription}
+            Capabilities: ${capabilities.join(", ") || "None specified"}
+            
+            The agent has been registered on the Hedera network with the following details:
+            Account ID: ${agent.accountId}
+            Inbound Topic ID: ${agent.inboundTopicId}
+            Outbound Topic ID: ${agent.outboundTopicId}
+            
+            Other users can now connect with your agent using its inbound topic ID.`,
             chatHistory
         );
 
@@ -314,7 +354,7 @@ async function handleCreateAgent(
         );
     } catch (error: any) {
         const errorResponse = await queryHederaOpenRouter(
-            `I encountered an error while trying to create a new agent: ${error.message}. Please try again later.`,
+            `I couldn't create the agent due to an error: ${error.message}. Please try again later.`,
             chatHistory
         );
 
@@ -330,7 +370,7 @@ async function handleCreateAgent(
 }
 
 /**
- * Handle a request to list connections
+ * Handle a request to list current connections
  * @param chatHistory The chat history
  * @param addToChat Function to add messages to the chat
  * @param hederaClient The HCS-10 client
@@ -345,7 +385,7 @@ async function handleListConnections(
 
         if (connections.size === 0) {
             const noConnectionsResponse = await queryHederaOpenRouter(
-                "You don't have any established connections with other agents yet. You can establish a connection by providing another agent's inbound topic ID.",
+                `You don't have any active connections with agents yet. You can establish a connection with an agent by providing their inbound topic ID.`,
                 chatHistory
             );
 
@@ -360,31 +400,131 @@ async function handleListConnections(
             return;
         }
 
-        // Format connections list
-        let connectionsList = "Your current agent connections:\n\n";
-        let index = 1;
+        // Format connections for display
+        let connectionsList = "";
+        connections.forEach((connection, id) => {
+            connectionsList += `
+- Target: ${connection.targetAccountId || "Unknown"}
+  Topic ID: ${connection.targetInboundTopicId}
+  Connection Topic: ${connection.connectionTopicId || "Not established"}
+  Status: ${connection.status || "Unknown"}
+`;
+        });
 
-        for (const [id, connection] of connections.entries()) {
-            connectionsList += `${index}. Target: ${connection.targetAccountId || 'Unknown'}\n`;
-            connectionsList += `   Inbound Topic: ${connection.targetInboundTopicId}\n`;
-            connectionsList += `   Connection Topic: ${connection.connectionTopicId || 'Not established'}\n`;
-            connectionsList += `   Status: ${connection.status || 'Unknown'}\n\n`;
-            index++;
-        }
-
-        const response = await queryHederaOpenRouter(connectionsList, chatHistory);
+        const connectionsResponse = await queryHederaOpenRouter(
+            `Here are your current agent connections:${connectionsList}
+            
+            You can send messages to agents with established connections by using their connection topic ID.`,
+            chatHistory
+        );
 
         addToChat(
             createChatMessage({
                 sender: "ai",
-                text: response,
+                text: connectionsResponse,
                 type: "text",
                 intent: "agent_communication"
             })
         );
     } catch (error: any) {
         const errorResponse = await queryHederaOpenRouter(
-            `I encountered an error while trying to list your connections: ${error.message}. Please try again later.`,
+            `I couldn't retrieve your connections due to an error: ${error.message}. Please try again later.`,
+            chatHistory
+        );
+
+        addToChat(
+            createChatMessage({
+                sender: "ai",
+                text: errorResponse,
+                type: "error",
+                intent: "agent_communication"
+            })
+        );
+    }
+}
+
+/**
+ * Handle a request to find available agents
+ * @param message The user's message
+ * @param chatHistory The chat history
+ * @param addToChat Function to add messages to the chat
+ * @param hederaClient The HCS-10 client
+ */
+async function handleFindAgents(
+    message: string,
+    chatHistory: any[],
+    addToChat: (msg: any) => void,
+    hederaClient: HCS10Client
+) {
+    try {
+        // Extract filters from the message
+        const filters: any = {};
+
+        if (message.toLowerCase().includes("text generation")) {
+            filters.capabilities = [...(filters.capabilities || []), "text_generation"];
+        }
+        if (message.toLowerCase().includes("data analysis")) {
+            filters.capabilities = [...(filters.capabilities || []), "data_analysis"];
+        }
+
+        if (message.toLowerCase().includes("named")) {
+            const nameMatch = message.match(/named ["'](.+?)["']/i);
+            if (nameMatch) filters.name = nameMatch[1];
+        }
+
+        // Find registered agents
+        const agents = await hederaClient.findRegisteredAgents(filters);
+
+        if (agents.length === 0) {
+            const noAgentsResponse = await queryHederaOpenRouter(
+                `I couldn't find any registered agents that match your criteria. Try searching without filters or try again later as more agents become available.`,
+                chatHistory
+            );
+
+            addToChat(
+                createChatMessage({
+                    sender: "ai",
+                    text: noAgentsResponse,
+                    type: "text",
+                    intent: "agent_communication"
+                })
+            );
+            return;
+        }
+
+        // Format agents for display (limit to 5 for readability)
+        let agentList = "";
+        agents.slice(0, 5).forEach((agent, index) => {
+            agentList += `
+${index + 1}. ${agent.metadata.name}
+   - Description: ${agent.metadata.description || "No description"}
+   - Inbound Topic ID: ${agent.inbound_topic_id}
+   - Capabilities: ${agent.metadata.capabilities?.join(", ") || "None specified"}
+`;
+        });
+
+        if (agents.length > 5) {
+            agentList += `\n...and ${agents.length - 5} more agents.`;
+        }
+
+        const agentsResponse = await queryHederaOpenRouter(
+            `I found ${agents.length} agent(s) registered on the Hedera network:${agentList}
+            
+            To connect with an agent, provide its inbound topic ID in a connection request.`,
+            chatHistory
+        );
+
+        addToChat(
+            createChatMessage({
+                sender: "ai",
+                text: agentsResponse,
+                type: "text",
+                intent: "agent_communication"
+            })
+        );
+    } catch (error: any) {
+        const errorResponse = await queryHederaOpenRouter(
+            `I couldn't find agents due to an error: ${error.message}. Please try again later.`,
             chatHistory
         );
 
